@@ -7,29 +7,25 @@
 FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 
-# Cache dependency layer
+# Copy pom.xml and source code
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy application source and build the production WAR
 COPY src ./src
+
+# Build production WAR (skipping test suite for clean fast container build)
 RUN mvn clean package -DskipTests -B
 
-# Stage 2: Production Runtime with Apache Tomcat 10.1 on Temurin JDK 17
+# Stage 2: Production Runtime with Apache Tomcat 10.1 on Eclipse Temurin JDK 17
 FROM tomcat:10.1-jdk17-temurin-jammy
 WORKDIR /usr/local/tomcat
 
-# Clean default pre-installed Tomcat applications (docs, examples, manager, ROOT)
+# Remove default boilerplate Tomcat webapps (docs, examples, ROOT, manager)
 RUN rm -rf webapps/*
 
-# Deploy the application as the default ROOT application (serving at /)
+# Deploy the application as ROOT.war so it serves directly at root path /
 COPY --from=builder /app/target/HibernateEmployeeManagement.war webapps/ROOT.war
 
-# Install startup entrypoint to handle dynamic Vercel $PORT routing (defaults to 80)
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Vercel Container Runtime listens on $PORT (defaults to 80)
+# Vercel Container Runtime routes HTTP traffic to $PORT (defaults to 80)
 EXPOSE 80
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Self-contained startup: dynamically replaces port 8080 with $PORT (or 80) in server.xml
+CMD ["sh", "-c", "sed -i \"s/port=\\\"8080\\\"/port=\\\"${PORT:-80}\\\"/g\" /usr/local/tomcat/conf/server.xml && exec catalina.sh run"]
