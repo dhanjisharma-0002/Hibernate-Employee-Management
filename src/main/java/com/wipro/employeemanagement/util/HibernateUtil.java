@@ -40,56 +40,63 @@ public class HibernateUtil {
                     System.out.println("[HibernateUtil] Base configuration loaded.");
                 }
 
-                // 2. Load custom database properties from db.properties if present and overlay them
+                // 2. Load custom database properties from db.properties if present
                 Properties dbProps = new Properties();
                 try (InputStream input = HibernateUtil.class.getClassLoader().getResourceAsStream("db.properties")) {
                     if (input != null) {
                         dbProps.load(input);
-
-                        // Apply both Hibernate and Jakarta settings for maximum compatibility
-                        if (dbProps.containsKey("db.driver")) {
-                            String driver = dbProps.getProperty("db.driver").trim();
-                            registryBuilder.applySetting(Environment.JAKARTA_JDBC_DRIVER, driver);
-                            registryBuilder.applySetting("hibernate.connection.driver_class", driver);
-                        }
-                        if (dbProps.containsKey("db.url")) {
-                            String url = dbProps.getProperty("db.url").trim();
-                            registryBuilder.applySetting(Environment.JAKARTA_JDBC_URL, url);
-                            registryBuilder.applySetting("hibernate.connection.url", url);
-                        }
-                        if (dbProps.containsKey("db.username")) {
-                            String user = dbProps.getProperty("db.username").trim();
-                            registryBuilder.applySetting(Environment.JAKARTA_JDBC_USER, user);
-                            registryBuilder.applySetting("hibernate.connection.username", user);
-                        }
-                        if (dbProps.containsKey("db.password")) {
-                            String pass = dbProps.getProperty("db.password");
-                            registryBuilder.applySetting(Environment.JAKARTA_JDBC_PASSWORD, pass);
-                            registryBuilder.applySetting("hibernate.connection.password", pass);
-                        }
-                        if (dbProps.containsKey("db.dialect")) {
-                            String dialect = dbProps.getProperty("db.dialect").trim();
-                            registryBuilder.applySetting(Environment.DIALECT, dialect);
-                            registryBuilder.applySetting("hibernate.dialect", dialect);
-                        }
-                        if (dbProps.containsKey("db.show_sql")) {
-                            String showSql = dbProps.getProperty("db.show_sql").trim();
-                            registryBuilder.applySetting(Environment.SHOW_SQL, showSql);
-                            registryBuilder.applySetting("hibernate.show_sql", showSql);
-                        }
-                        if (dbProps.containsKey("db.format_sql")) {
-                            String formatSql = dbProps.getProperty("db.format_sql").trim();
-                            registryBuilder.applySetting(Environment.FORMAT_SQL, formatSql);
-                            registryBuilder.applySetting("hibernate.format_sql", formatSql);
-                        }
-                        if (dbProps.containsKey("db.hbm2ddl.auto")) {
-                            String hbm2ddl = dbProps.getProperty("db.hbm2ddl.auto").trim();
-                            registryBuilder.applySetting(Environment.HBM2DDL_AUTO, hbm2ddl);
-                            registryBuilder.applySetting("hibernate.hbm2ddl.auto", hbm2ddl);
-                        }
                     }
                 } catch (Exception e) {
                     System.err.println("[HibernateUtil] Note reading db.properties: " + e.getMessage());
+                }
+
+                // 2a. Apply database configuration: Environment variables take precedence over db.properties
+                String driver = getEnvOrProp("DB_DRIVER", dbProps.getProperty("db.driver"));
+                if (driver != null && !driver.isEmpty()) {
+                    registryBuilder.applySetting(Environment.JAKARTA_JDBC_DRIVER, driver);
+                    registryBuilder.applySetting("hibernate.connection.driver_class", driver);
+                }
+
+                String url = getEnvOrProp("DB_URL", getEnvOrProp("DATABASE_URL", getEnvOrProp("MYSQL_URL", dbProps.getProperty("db.url"))));
+                if (url != null && !url.isEmpty()) {
+                    registryBuilder.applySetting(Environment.JAKARTA_JDBC_URL, url);
+                    registryBuilder.applySetting("hibernate.connection.url", url);
+                }
+
+                String user = getEnvOrProp("DB_USERNAME", getEnvOrProp("MYSQL_USER", dbProps.getProperty("db.username")));
+                if (user != null && !user.isEmpty()) {
+                    registryBuilder.applySetting(Environment.JAKARTA_JDBC_USER, user);
+                    registryBuilder.applySetting("hibernate.connection.username", user);
+                }
+
+                String pass = getEnvOrProp("DB_PASSWORD", getEnvOrProp("MYSQL_PASSWORD", dbProps.getProperty("db.password")));
+                if (pass != null) {
+                    registryBuilder.applySetting(Environment.JAKARTA_JDBC_PASSWORD, pass);
+                    registryBuilder.applySetting("hibernate.connection.password", pass);
+                }
+
+                String dialect = getEnvOrProp("DB_DIALECT", dbProps.getProperty("db.dialect"));
+                if (dialect != null && !dialect.isEmpty()) {
+                    registryBuilder.applySetting(Environment.DIALECT, dialect);
+                    registryBuilder.applySetting("hibernate.dialect", dialect);
+                }
+
+                String showSql = getEnvOrProp("DB_SHOW_SQL", dbProps.getProperty("db.show_sql"));
+                if (showSql != null && !showSql.isEmpty()) {
+                    registryBuilder.applySetting(Environment.SHOW_SQL, showSql);
+                    registryBuilder.applySetting("hibernate.show_sql", showSql);
+                }
+
+                String formatSql = getEnvOrProp("DB_FORMAT_SQL", dbProps.getProperty("db.format_sql"));
+                if (formatSql != null && !formatSql.isEmpty()) {
+                    registryBuilder.applySetting(Environment.FORMAT_SQL, formatSql);
+                    registryBuilder.applySetting("hibernate.format_sql", formatSql);
+                }
+
+                String hbm2ddl = getEnvOrProp("DB_HBM2DDL_AUTO", dbProps.getProperty("db.hbm2ddl.auto"));
+                if (hbm2ddl != null && !hbm2ddl.isEmpty()) {
+                    registryBuilder.applySetting(Environment.HBM2DDL_AUTO, hbm2ddl);
+                    registryBuilder.applySetting("hibernate.hbm2ddl.auto", hbm2ddl);
                 }
 
                 // 3. Build Registry
@@ -130,5 +137,20 @@ public class HibernateUtil {
             StandardServiceRegistryBuilder.destroy(registry);
         }
         System.out.println("[HibernateUtil] SessionFactory closed gracefully.");
+    }
+
+    /**
+     * Reads a value from Environment variables, falling back to System properties, then the fallback value.
+     */
+    private static String getEnvOrProp(String key, String fallback) {
+        String val = System.getenv(key);
+        if (val != null && !val.trim().isEmpty()) {
+            return val.trim();
+        }
+        val = System.getProperty(key);
+        if (val != null && !val.trim().isEmpty()) {
+            return val.trim();
+        }
+        return fallback;
     }
 }

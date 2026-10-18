@@ -1,0 +1,35 @@
+# ==============================================================================
+# Vercel-compatible OCI Container Configuration for Tomcat 10.1 + Java 17 WAR
+# Documentation: https://vercel.com/docs/functions/runtimes/container-runtimes
+# ==============================================================================
+
+# Stage 1: Build the Maven WAR artifact
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+WORKDIR /app
+
+# Cache dependency layer
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy application source and build the production WAR
+COPY src ./src
+RUN mvn clean package -DskipTests -B
+
+# Stage 2: Production Runtime with Apache Tomcat 10.1 on Temurin JDK 17
+FROM tomcat:10.1-jdk17-temurin-jammy
+WORKDIR /usr/local/tomcat
+
+# Clean default pre-installed Tomcat applications (docs, examples, manager, ROOT)
+RUN rm -rf webapps/*
+
+# Deploy the application as the default ROOT application (serving at /)
+COPY --from=builder /app/target/HibernateEmployeeManagement.war webapps/ROOT.war
+
+# Install startup entrypoint to handle dynamic Vercel $PORT routing (defaults to 80)
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Vercel Container Runtime listens on $PORT (defaults to 80)
+EXPOSE 80
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
