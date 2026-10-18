@@ -1,0 +1,2 @@
+# Protected JSP views directory
+# Internal JSP pages will be placed here to prevent direct URL access.

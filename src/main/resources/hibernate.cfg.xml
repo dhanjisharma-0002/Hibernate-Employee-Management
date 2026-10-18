@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+
+<hibernate-configuration>
+    <session-factory>
+        <!-- JDBC Database connection settings -->
+        <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+        <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/hibernate_employee_db?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=UTC&amp;createDatabaseIfNotExist=true</property>
+        <property name="hibernate.connection.username">root</property>
+        <property name="hibernate.connection.password">YOUR_MYSQL_PASSWORD</property>
+
+        <!-- Modern Hibernate 6 SQL Dialect for MySQL -->
+        <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
+
+        <!-- Echo all executed SQL to stdout -->
+        <property name="hibernate.show_sql">true</property>
+        <property name="hibernate.format_sql">true</property>
+
+        <!-- Update database schema on application start -->
+        <property name="hibernate.hbm2ddl.auto">update</property>
+
+        <!-- Connection pool sizing (basic built-in pool for beginner/dev usage) -->
+        <property name="hibernate.connection.pool_size">10</property>
+
+        <!-- Entity Class Mappings -->
+        <mapping class="com.wipro.employeemanagement.model.User"/>
+        <mapping class="com.wipro.employeemanagement.model.Employee"/>
+    </session-factory>
+</hibernate-configuration>
